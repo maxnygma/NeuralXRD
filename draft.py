@@ -30,17 +30,18 @@ def create_df_from_xrd_files(path_to_xrd_files='xrd_patterns'):
 
     return data
 
-data = create_df_from_xrd_files(path_to_xrd_files='xrd_patterns')
 
 def generate_synthetic_phases(data):
     ''' Generate synthetic phases by combining phases of two distinct materials '''
 
+    # Get sample ids for all of materials
     material_ids_dict = {}
     for material in data['material'].unique():
         material_ids = np.unique(data['id'][data['material'] == material].values)
         material_ids_dict[material] = material_ids
 
-    for material_1 in material_ids_dict:
+    # Iterate over materials
+    for material_1 in tqdm(material_ids_dict):
         for material_2 in material_ids_dict:
             if material_1 == material_2:
                 continue
@@ -48,10 +49,11 @@ def generate_synthetic_phases(data):
             ids_1 = material_ids_dict[material_1]
             ids_2 = material_ids_dict[material_2]
 
+            # Iterate over ids for two selected materials
             for id_1 in ids_1:
                 for id_2 in ids_2:
                     # Check if combination is already processed
-                    if (f'{id_1}_{id_2}' in data['id'].values) or (f'{id_2}_{id_1}' in data['id'].values):
+                    if (f'{id_1}_{id_2}_1' in data['id'].values) or (f'{id_2}_{id_1}_1' in data['id'].values):
                         continue
                     
                     # Get data of two materials
@@ -59,38 +61,36 @@ def generate_synthetic_phases(data):
                     material_data_2 = data[data['id'] == id_2]
 
                     # Shift intensity by a random 2theta
-                    material_data_1['intensity'] = material_data_1['intensity'].shift(random.randint(0, 3))
-                    material_data_2['intensity'] = material_data_2['intensity'].shift(random.randint(0, 3))
+                    for i in range(3):
+                        material_data_1['intensity'] = material_data_1['intensity'].shift(random.randint(0, 3), fill_value=0.0) # what degree shift is ok? (step 0.2)
+                        material_data_2['intensity'] = material_data_2['intensity'].shift(random.randint(0, 3), fill_value=0.0)
 
-                    # Scale intensity by a random value
-                    material_data_1['intensity'] *= random.uniform(0.5, 1.5)
-                    material_data_2['intensity'] *= random.uniform(0.5, 1.5)
+                        # Scale intensity by a random value
+                        material_data_1['intensity'] *= random.uniform(0.5, 1.5)
+                        material_data_2['intensity'] *= random.uniform(0.5, 1.5)
 
-                    # Combine phases
-                    stacked_material_intensity = material_data_1['intensity'].values + material_data_2['intensity'].values
+                        # Combine phases
+                        stacked_material_intensity = material_data_1['intensity'].values + material_data_2['intensity'].values
 
-                    synthetic_phase_data = pd.DataFrame({'id': id_1 + '_' + id_2, 
-                                                         'material': material_1 + '_' + material_2,
-                                                         '2theta': material_data_1['2theta'].values,
-                                                         'intensity': stacked_material_intensity})
+                        synthetic_phase_data = pd.DataFrame({'id': id_1 + '_' + id_2 + '_' + str(i), 
+                                                            'material': material_1 + '_' + material_2,
+                                                            '2theta': material_data_1['2theta'].values,
+                                                            'intensity': stacked_material_intensity})
 
-                    data = pd.concat([data, synthetic_phase_data]).reset_index(drop=True)
-
-                    #print(synthetic_phase_data)
+                        data = pd.concat([data, synthetic_phase_data]).reset_index(drop=True)
 
     return data
 
 
-    # print(material_ids_dict['fe'])
+data = create_df_from_xrd_files(path_to_xrd_files='xrd_patterns')
 
-print(data.dtypes)
 data = generate_synthetic_phases(data)
 print(data)
 
-
-# plt.plot(data['2theta'][data['id'] == '1100108'], stacked_data_intensity, label='fe + cr')
-# plt.legend()
-# plt.show()
+random_idx = random.choice(data['id'].unique())
+plt.plot(data['2theta'][data['id'] == random_idx], data['intensity'][data['id'] == random_idx], label=data['material'][data['id'] == random_idx].values[0])
+plt.legend()
+plt.show()
 
 
 # plt.plot(data['2theta'][data['id'] == '1100108'], data['intensity'][data['id'] == '1100108'], label='1100108')
