@@ -61,9 +61,9 @@ def generate_synthetic_phases(data):
                     material_data_2 = data[data['id'] == id_2]
 
                     # Shift intensity by a random 2theta
-                    for i in range(3):
-                        material_data_1['intensity'] = material_data_1['intensity'].shift(random.randint(0, 3), fill_value=0.0) # what degree shift is ok? (step 0.2)
-                        material_data_2['intensity'] = material_data_2['intensity'].shift(random.randint(0, 3), fill_value=0.0)
+                    for i in range(5):
+                        material_data_1['intensity'] = material_data_1['intensity'].shift(random.randint(0, 50), fill_value=0.0) # what degree shift is ok? (step 0.2)
+                        material_data_2['intensity'] = material_data_2['intensity'].shift(random.randint(0, 50), fill_value=0.0)
 
                         # Scale intensity by a random value
                         material_data_1['intensity'] *= random.uniform(0.5, 1.5)
@@ -83,9 +83,11 @@ def generate_synthetic_phases(data):
 
 
 data = create_df_from_xrd_files(path_to_xrd_files='xrd_patterns')
+initial_shape = data.shape[0]
 
 data = generate_synthetic_phases(data)
 print(data)
+print((data.shape[0] - initial_shape) / 2250)
 
 random_idx = random.choice(data['id'].unique())
 plt.plot(data['2theta'][data['id'] == random_idx], data['intensity'][data['id'] == random_idx], label=data['material'][data['id'] == random_idx].values[0])
