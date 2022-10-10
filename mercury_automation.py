@@ -13,16 +13,19 @@ import matplotlib.pyplot as plt
 def get_cif_files_for_element(material):
     ''' Request and download cif files based on URL with a specific material mentioned '''
 
-    for page in range(100):
-        # Ti
-        data_url = pd.read_html(f'http://www.crystallography.net/cod/result.php?CODSESSION=m3gu2ds6gnlp9pnbdvv3ptf87a&count=1000&page={page}&order_by=file&order=asc')[0]
+    os.makedirs(f'{material}_cif_files', exist_ok=True)
+
+    for _ in range(1):
+        # 2-element compounds 
+        data_url = pd.read_html(f'http://www.crystallography.net/cod/result.php?CODSESSION=1vlgmsvsakkp6qjvv8gkkp3dvl&count=20&page=0&order_by=file&order=asc')[0]
 
         if len(data_url) == 0:
             break
 
         for cod_id in tqdm(data_url[data_url.columns[0]].values):
             url = f'http://www.crystallography.net/cod/{cod_id}.cif'
-            save_as = f'/home/xzcodes/projects/xray_diff/{material}_cif_files/{cod_id}.cif'
+            # save_as = f'/home/xzcodes/projects/xray_diff/{material}_cif_files/{cod_id}.cif'
+            save_as = f'{material}_cif_files/{cod_id}.cif'
 
             with urlopen(url) as file:
                 content = file.read().decode()
@@ -31,16 +34,21 @@ def get_cif_files_for_element(material):
                 d.write(content)
 
 
-def get_dataframe_from_cif_files(material):
+def get_dataframe_from_cif_files(material=None):
     ''' Create a DataFrame from cif files and compound names written in them '''
 
-    files = sorted(os.listdir(f'{material}_cif_files'))
+    if material is None:
+        material = ''
+    else:
+        material += '_'
+
+    files = sorted(os.listdir(f'{material}cif_files'))
     files = [file[:-4] for file in files if '.cif' in file]
 
     list_of_names = []
 
     for filename in files:
-        with open(f'{material}_cif_files/{filename}.cif', 'r') as f:
+        with open(f'{material}cif_files/{filename}.cif', 'r') as f:
             cif_file = f.read()
 
         idx = cif_file.index('_chemical_formula_sum')
@@ -109,10 +117,10 @@ def generate_powder_pattern(material):
         pyautogui.moveTo(100, 100)
 
 
-# get_cif_files_for_element(material='ti)
-generate_powder_pattern(material='ti')
+get_cif_files_for_element(material='2_element')
+# generate_powder_pattern(material='ti')
 
-# data = get_dataframe_from_cif_files(material='ti')
+# data = get_dataframe_from_cif_files(material=None)
 # print(data)
 # print(data['compound_name'][data['cod_id'] == '1528044'])
 

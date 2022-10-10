@@ -60,10 +60,10 @@ def generate_synthetic_phases(data):
                     material_data_1 = data[data['id'] == id_1]
                     material_data_2 = data[data['id'] == id_2]
 
-                    # Shift intensity by a random 2theta
-                    for i in range(5):
-                        material_data_1['intensity'] = material_data_1['intensity'].shift(random.randint(0, 50), fill_value=0.0) # what degree shift is ok? (step 0.2)
-                        material_data_2['intensity'] = material_data_2['intensity'].shift(random.randint(0, 50), fill_value=0.0)
+                    # Shift intensity by a random 2theta (range of [-1; 1])
+                    for i in range(30):
+                        material_data_1['intensity'] = material_data_1['intensity'].shift(random.randint(-50, 50), fill_value=0.0)
+                        material_data_2['intensity'] = material_data_2['intensity'].shift(random.randint(-50, 50), fill_value=0.0)
 
                         # Scale intensity by a random value
                         material_data_1['intensity'] *= random.uniform(0.5, 1.5)
@@ -87,9 +87,24 @@ initial_shape = data.shape[0]
 
 data = generate_synthetic_phases(data)
 print(data)
+print(data['material'].value_counts())
 print((data.shape[0] - initial_shape) / 2250)
 
+# Visualize a synthetic sample
 random_idx = random.choice(data['id'].unique())
+
+# if len(random_idx.split('_')) > 1:
+#     idx_1 = random_idx.split('_')[0]
+#     idx_2 = random_idx.split('_')[1]
+
+#     plt.plot(data['2theta'][data['id'] == idx_1], data['intensity'][data['id'] == idx_1], label=data['material'][data['id'] == idx_1].values[0])
+#     plt.legend()
+#     plt.show()
+
+#     plt.plot(data['2theta'][data['id'] == idx_2], data['intensity'][data['id'] == idx_2], label=data['material'][data['id'] == idx_2].values[0])
+#     plt.legend()
+#     plt.show()
+
 plt.plot(data['2theta'][data['id'] == random_idx], data['intensity'][data['id'] == random_idx], label=data['material'][data['id'] == random_idx].values[0])
 plt.legend()
 plt.show()
