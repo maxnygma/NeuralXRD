@@ -1,0 +1,121 @@
+#------------------------------------------------------------------------------
+#$Date: 2017-10-16 01:16:12 +0300 (Mon, 16 Oct 2017) $
+#$Revision: 202026 $
+#$URL: file:///home/coder/svn-repositories/cod/cif/1/00/00/1000063.cif $
+#------------------------------------------------------------------------------
+#
+# This file is available in the Crystallography Open Database (COD),
+# http://www.crystallography.net/
+#
+# All data on this site have been placed in the public domain by the
+# contributors.
+#
+data_1000063
+loop_
+_publ_author_name
+'Neuburger, M C'
+_publ_section_title
+;
+Praezisionsmessung der Gitterkonstante von Cuprooxyd Cu2 O
+;
+_journal_coden_ASTM              ZEPYAA
+_journal_name_full               'Zeitschrift fuer Physik'
+_journal_page_first              845
+_journal_page_last               850
+_journal_paper_doi               10.1007/BF01390765
+_journal_volume                  67
+_journal_year                    1930
+_chemical_compound_source        synthetic
+_chemical_formula_structural     'Cu2 O'
+_chemical_formula_sum            'Cu2 O'
+_chemical_name_mineral           Cuprite
+_chemical_name_systematic        'Copper(I) oxide'
+_space_group_IT_number           224
+_symmetry_cell_setting           cubic
+_symmetry_space_group_name_Hall  'P 4n 2 3 -1n'
+_symmetry_space_group_name_H-M   'P n -3 m :1'
+_cell_angle_alpha                90
+_cell_angle_beta                 90
+_cell_angle_gamma                90
+_cell_formula_units_Z            2
+_cell_length_a                   4.252(2)
+_cell_length_b                   4.252(2)
+_cell_length_c                   4.252(2)
+_cell_volume                     76.9
+_exptl_crystal_density_meas      5.92(17)
+_cod_original_sg_symbol_H-M      'P n -3 m S'
+_cod_database_code               1000063
+loop_
+_symmetry_equiv_pos_as_xyz
+x,y,z
+x,z,y
+y,z,x
+z,y,x
+z,x,y
+y,x,z
+x,-y,-z
+x,-z,-y
+y,-z,-x
+z,-y,-x
+z,-x,-y
+y,-x,-z
+-x,y,-z
+-x,z,-y
+-y,z,-x
+-z,y,-x
+-z,x,-y
+-y,x,-z
+-x,-y,z
+-x,-z,y
+-y,-z,x
+-z,-y,x
+-z,-x,y
+-y,-x,z
+1/2-x,1/2-y,1/2-z
+1/2-x,1/2-z,1/2-y
+1/2-y,1/2-z,1/2-x
+1/2-z,1/2-y,1/2-x
+1/2-z,1/2-x,1/2-y
+1/2-y,1/2-x,1/2-z
+1/2-x,1/2+y,1/2+z
+1/2-x,1/2+z,1/2+y
+1/2-y,1/2+z,1/2+x
+1/2-z,1/2+y,1/2+x
+1/2-z,1/2+x,1/2+y
+1/2-y,1/2+x,1/2+z
+1/2+x,1/2-y,1/2+z
+1/2+x,1/2-z,1/2+y
+1/2+y,1/2-z,1/2+x
+1/2+z,1/2-y,1/2+x
+1/2+z,1/2-x,1/2+y
+1/2+y,1/2-x,1/2+z
+1/2+x,1/2+y,1/2-z
+1/2+x,1/2+z,1/2-y
+1/2+y,1/2+z,1/2-x
+1/2+z,1/2+y,1/2-x
+1/2+z,1/2+x,1/2-y
+1/2+y,1/2+x,1/2-z
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_symmetry_multiplicity
+_atom_site_Wyckoff_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+_atom_site_attached_hydrogens
+_atom_site_calc_flag
+O1 O2- 2 a 0. 0. 0. 1. 0 d
+Cu1 Cu1+ 4 b 0.25 0.25 0.25 1. 0 d
+loop_
+_atom_type_symbol
+_atom_type_oxidation_number
+O2- -2.000
+Cu1+ 1.000
+loop_
+_cod_related_entry_id
+_cod_related_entry_database
+_cod_related_entry_code
+1 ChemSpider 8488659
+2 AMCSD 0015851
