@@ -61,7 +61,7 @@ def generate_synthetic_phases(data):
                     material_data_2 = data[data['id'] == id_2]
 
                     # Shift intensity by a random 2theta (range of [-1; 1])
-                    for i in range(30):
+                    for i in range(5):
                         material_data_1['intensity'] = material_data_1['intensity'].shift(random.randint(-50, 50), fill_value=0.0)
                         material_data_2['intensity'] = material_data_2['intensity'].shift(random.randint(-50, 50), fill_value=0.0)
 
@@ -79,16 +79,19 @@ def generate_synthetic_phases(data):
 
                         data = pd.concat([data, synthetic_phase_data]).reset_index(drop=True)
 
+    data.to_csv('data.csv', index=False)
+
     return data
 
 
-data = create_df_from_xrd_files(path_to_xrd_files='xrd_patterns')
-initial_shape = data.shape[0]
+# data = create_df_from_xrd_files(path_to_xrd_files='xrd_patterns')
+# initial_shape = data.shape[0]
+# data = generate_synthetic_phases(data)
+data = pd.read_csv('data.csv')
 
-data = generate_synthetic_phases(data)
 print(data)
 print(data['material'].value_counts())
-print((data.shape[0] - initial_shape) / 2250)
+# print(data.shape[0] / 2250, (data.shape[0] - initial_shape) / 2250)
 
 # Visualize a synthetic sample
 random_idx = random.choice(data['id'].unique())
@@ -108,11 +111,5 @@ random_idx = random.choice(data['id'].unique())
 plt.plot(data['2theta'][data['id'] == random_idx], data['intensity'][data['id'] == random_idx], label=data['material'][data['id'] == random_idx].values[0])
 plt.legend()
 plt.show()
-
-
-# plt.plot(data['2theta'][data['id'] == '1100108'], data['intensity'][data['id'] == '1100108'], label='1100108')
-# plt.plot(data['2theta'][data['id'] == '5000220'], data['intensity'][data['id'] == '5000220'], label='5000220')
-# plt.legend()
-# plt.show()
 
 
