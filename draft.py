@@ -84,9 +84,9 @@ def generate_synthetic_phases(data):
     return data
 
 
-# data = create_df_from_xrd_files(path_to_xrd_files='xrd_patterns')
+data = create_df_from_xrd_files(path_to_xrd_files='xrd_patterns')
 # initial_shape = data.shape[0]
-# data = generate_synthetic_phases(data)
+data = generate_synthetic_phases(data)
 data = pd.read_csv('data.csv')
 
 print(data)
