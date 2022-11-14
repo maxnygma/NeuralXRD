@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 import warnings
@@ -61,7 +62,7 @@ def generate_synthetic_phases(data):
                     material_data_2 = data[data['id'] == id_2]
 
                     # Shift intensity by a random 2theta (range of [-1; 1])
-                    for i in range(5):
+                    for i in range(50):
                         material_data_1['intensity'] = material_data_1['intensity'].shift(random.randint(-50, 50), fill_value=0.0)
                         material_data_2['intensity'] = material_data_2['intensity'].shift(random.randint(-50, 50), fill_value=0.0)
 
@@ -84,13 +85,43 @@ def generate_synthetic_phases(data):
     return data
 
 
-data = create_df_from_xrd_files(path_to_xrd_files='xrd_patterns')
+def normalize_intensity(data):
+    for x in range(0, len(data) - 2250, 2250):
+        intensity = data['intensity'].iloc[x:x + 2250].values
+        intensity = (intensity - min(intensity)) / (max(intensity) - min(intensity))
+
+        data['intensity'].iloc[x:x + 2250] = intensity
+
+    return data
+
+
+def extract_peaks(seq):
+    pass
+
+
+# data = create_df_from_xrd_files(path_to_xrd_files='xrd_patterns')
 # initial_shape = data.shape[0]
-data = generate_synthetic_phases(data)
+# data = generate_synthetic_phases(data)
 data = pd.read_csv('data.csv')
+data = normalize_intensity(data)
+
+data = data[data['id'].str.contains('_')].reset_index(drop=True)
+
+
+# for x in tqdm(data['id'].unique()):
+#     intensity = [data['intensity'][data['id'] == x].values.tolist()]
+
+#     row = pd.DataFrame(data[data['id'] == x].iloc[0]).T
+#     row['intensity'] = row['intensity'].astype('object')
+#     row['intensity'] = intensity
+    
+#     data = data.drop(data[data['id'] == x].index)
+#     data = pd.concat([data, row])
+
+#     print(data.shape)
 
 print(data)
-print(data['material'].value_counts())
+print(data['material'].value_counts().apply(lambda x: x // 2250))
 # print(data.shape[0] / 2250, (data.shape[0] - initial_shape) / 2250)
 
 # Visualize a synthetic sample

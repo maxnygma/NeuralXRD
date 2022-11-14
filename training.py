@@ -15,6 +15,9 @@ from torch import dropout, optim
 from torch.utils.data import Dataset, DataLoader
 from torch.cuda import amp
 
+from pytorch_metric_learning import losses as L
+from pytorch_metric_learning import miners
+
 import matplotlib
 import matplotlib.pyplot as plt
 
@@ -30,13 +33,16 @@ class XRDDataset(Dataset):
     def __getitem__(self, idx):
         material_id = self.materials_ids_list[idx]
         sample = self.data[['intensity']][self.data['id'] == material_id].values
-        label = self.data[['first_material', 'second_material']][self.data['id'] == material_id].values ### ENCODE TARGET
+        # label = self.data[['first_material', 'second_material']][self.data['id'] == material_id].values
+        label = self.data['material'][self.data['id'] == material_id].values[0]
+
         # print(material_id)
         # print(self.data['material'][self.data['id'] == material_id].values[0])
         # print(sample)
 
         sample = torch.tensor(sample, dtype=torch.float32).transpose(1, 0)
-        label = torch.tensor(label, dtype=torch.float32).transpose(1, 0)
+        #label = torch.tensor(label, dtype=torch.float32).transpose(1, 0)
+        label = torch.tensor(label, dtype=torch.long)
 
         return {
             'sample': sample,
@@ -79,14 +85,16 @@ class DataPreprocesser():
         data = data[data['material'].str.contains('_')]
 
         # Encode phases
-        data['first_material'] = data['material'].apply(lambda x: x.split('_')[0])
-        data['second_material'] = data['material'].apply(lambda x: x.split('_')[1])
-        materials = np.unique([*data['first_material'].unique(), *data['second_material'].unique()])
+        encodings = dict(list(enumerate(data['material'].unique())))
+        data['material'] = data['material'].apply(lambda x: list(encodings.keys())[list(encodings.values()).index(x)])
+        # data['first_material'] = data['material'].apply(lambda x: x.split('_')[0])
+        # data['second_material'] = data['material'].apply(lambda x: x.split('_')[1])
+        # materials = np.unique([*data['first_material'].unique(), *data['second_material'].unique()])
 
-        encodings = dict(list(enumerate(materials)))
+        # encodings = dict(list(enumerate(materials)))
 
-        data['first_material'] = data['first_material'].apply(lambda x: list(encodings.keys())[list(encodings.values()).index(x)])
-        data['second_material'] = data['second_material'].apply(lambda x: list(encodings.keys())[list(encodings.values()).index(x)])
+        # data['first_material'] = data['first_material'].apply(lambda x: list(encodings.keys())[list(encodings.values()).index(x)])
+        # data['second_material'] = data['second_material'].apply(lambda x: list(encodings.keys())[list(encodings.values()).index(x)])
 
         return data
 
@@ -112,30 +120,64 @@ class PositionalEncoding(nn.Module):
         return x
 
 
+# class XRDModel(nn.Module):
+#     def __init__(self):
+#         super(XRDModel, self).__init__()
+
+#         # self.transformer = nn.Transformer(d_model=2250, nhead=10, batch_first=True)
+#         self.embedding = nn.Embedding(1, 2250)
+#         self.pos_encoding = PositionalEncoding(d_model=2250, dropout=0.5)
+#         self.encoder_layer = nn.TransformerEncoderLayer(d_model=2250, nhead=10, batch_first=True)
+#         self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=6)
+
+#     def forward(self, x, y):
+#         # x = self.transformer(x, y)
+#         # x = self.embedding(x)
+#         x = self.pos_encoding(x)
+#         x = self.transformer_encoder(x)
+
+#         x = x.squeeze(1)
+
+#         return x
+
+
 class XRDModel(nn.Module):
     def __init__(self):
         super(XRDModel, self).__init__()
 
         # self.transformer = nn.Transformer(d_model=2250, nhead=10, batch_first=True)
-        self.pos_encoding = PositionalEncoding(d_model=2250, dropout=0.5)
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=2250, nhead=10, batch_first=True)
-        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=6)
+        self.embedding = nn.Embedding(1, 2250)
+        self.lstm = nn.LSTM(input_size=2250, hidden_size=256, num_layers=1, dropout=0, bidirectional=False, batch_first=True)
 
     def forward(self, x, y):
         # x = self.transformer(x, y)
-        x = self.pos_encoding(x)
-        x = self.transformer_encoder(x)
+        # x = self.embedding(x)
+        # x = self.pos_encoding(x)
+        # x = self.transformer_encoder(x)
+        x, h = self.lstm(x)
+
+        x = x.squeeze(1)
 
         return x
 
 
 class XRDLoss():
     def __init__(self):
-        self.cross_entropy = nn.CrossEntropyLoss(reduction='mean') 
+        # self.contrastive_loss = L.ContrastiveLoss(pos_margin=0, neg_margin=1)
+        self.contrastive_loss = L.TripletMarginLoss()
+        #self.contrastive_loss = L.CosFaceLoss(margin=0.3, num_classes=15, embedding_size=2250, scale=64)
+
+        # self.miner = BatchEasyHardMiner(pos_strategy='easy', neg_strategy='easy')
+        self.miner = miners.PairMarginMiner(pos_margin=0.5, neg_margin=0.5)
         ### Metric learning loss for embeddings ###
 
     def __call__(self, outputs, labels):
-        loss = self.cross_entropy(outputs, labels)
+        print(outputs.shape)
+        print(labels)
+        # loss = self.cross_entropy(outputs, labels)
+        #pairs = self.miner(outputs, labels)
+        #print(pairs)
+        loss = self.contrastive_loss(outputs, labels)
 
         return loss
 
@@ -155,11 +197,14 @@ def train(config, dataloader, loss_function, model, optimizer, scheduler, scaler
                 loss = loss_function(outputs, labels)
         else:
             outputs = model(inputs, labels)
+            # print(outputs.shape, labels.shape)
+            # sample = outputs[0].cpu().detach().numpy()
+            # plt.plot(range(256), sample)
+            # plt.show()
 
             loss = loss_function(outputs, labels)
         
         print(loss.item())
-        print(outputs.shape)
 
         total_loss += loss.item()
 
@@ -174,8 +219,6 @@ def train(config, dataloader, loss_function, model, optimizer, scheduler, scaler
     print('Learning rate:', optimizer.param_groups[0]['lr'])
 
     return total_loss / len(dataloader)
-
-        
 
 
 def validate():
@@ -217,15 +260,15 @@ if __name__ == '__main__':
             'path_to_csv': 'data.csv'
         },
         'data': {
-            'train_batch_size': 4,
-            'val_batch_size': 4,
+            'train_batch_size': 8,
+            'val_batch_size': 8,
         },
         'training': {
             'num_epochs': 10,
             'lr': 0.001,
             'device': 'cuda',
 
-            'mixed_precision': True
+            'mixed_precision': False
         }
     }
 
