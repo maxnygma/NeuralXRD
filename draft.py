@@ -237,45 +237,30 @@ def score_method(data):
                     if output['material'] in material:
                         tp += 1
                     elif output['material'] not in material:
-                        fp += 1
-
-                    
+                        fp += 1    
             else:
                 continue
 
-    # print(score, len(data_combined['material'].unique()) * 2)
     precision = tp / (tp + fp)
-    # recall = tp / (tp + (dataset_size * 2) - tp)
-    print(precision)
-
-    # for material_1 in materials:
-    #     for material_2 in materials:
-    #         if material_1 == material_2:
-    #             continue
-            
-    #         single_intensity = single_elements_data[single_elements_data['material'] == material_1].values[0:2250]
-    #         try:
-    #             combined_intensity = random.choice(data['intensity'] \
-    #                     [data['material'].str.contains(material_1 + '_' + material_2)].values.reshape((-1, 2250)))
-    #         except:
-    #             combined_intensity = random.choice(data['intensity'] \
-    #                     [data['material'].str.contains(material_2 + '_' + material_1)].values.reshape((-1, 2250)))
-
+    recall = tp / (dataset_size * 2)
+    f_score = 2 * ((precision * recall) / (precision + recall))
+    print(precision, recall)
+    print(f_score) 
 
 
 def compute_peak_area_similarity(intensity, data, clip_threshold, peak_distance=None, peak_height=None, rounding_factor=5, 
                                  verbose=False):
     ### Deteck peaks and their minima -> calculate area under peak for each normalized peak -> 
     ### -> do the same for selected sample (also normalize each peak) -> compare number of matching areas
-
     single_element_data = data[~data['id'].str.contains('_')].reset_index(drop=True)
-    # similarities = {x: 0 for x in single_element_data['material'].unique()}
-    # similarities.keys = single_element_data['material'].unique()
 
     areas, minimums = compute_peak_areas(intensity, clip_threshold=clip_threshold, peak_distance=peak_distance, 
                                peak_height=peak_height, rounding_factor=rounding_factor)
 
     outputs = []
+    experiments = pd.DataFrame(columns=['reference_material', 'detected_material', 'areas_reference',
+                                        'areas_detected', 'num_matched_peaks', 'start_point_reference',
+                                        'last_point_reference', 'start_point_detected', 'last_point_detected'])
 
     # Iterate over a set of samples for a particular element
     for i in range(0, len(single_element_data) - 2250, 2250):
@@ -315,6 +300,7 @@ def compute_peak_area_similarity(intensity, data, clip_threshold, peak_distance=
                 'last_point_combined_material': np.where(intensity[s_point:l_point] > 0)[0][-1]
             })
 
+            
     return outputs
 
         
@@ -332,7 +318,7 @@ data = normalize_intensity(data)
 # data = data[data['id'].str.contains('_')].reset_index(drop=True)
 
 # Get XRD patterns of a two materials and a combination of them
-first_material = 'ni'
+first_material = 'bao2'
 second_material = 'al2o3'
 
 original_sample = random.choice(data['intensity'][data['material'] == first_material].values.reshape((-1, 2250)))
@@ -365,9 +351,9 @@ except:
 
 # Add peak position comparison to remove wrong predictions
 # Shift and removed detected material
-# outputs = compute_peak_area_similarity(combined_intensity, data, clip_threshold=0.05, 
-#                                        peak_distance=None, peak_height=0.05, rounding_factor=4, verbose=True)
-score_method(data)
+outputs = compute_peak_area_similarity(combined_intensity, data, clip_threshold=0.05, 
+                                       peak_distance=None, peak_height=0.05, rounding_factor=4, verbose=True)
+# score_method(data)
 
 plt.figure(figsize=(12, 5))
 plt.subplot(1, 2, 1)
