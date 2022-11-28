@@ -1,4 +1,5 @@
 ti_cif_files
 data
+model_weights
 andrey.cif
 data_old.csv

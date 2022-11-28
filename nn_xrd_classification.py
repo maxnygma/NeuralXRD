@@ -21,6 +21,8 @@ from torch.utils.data import Dataset, DataLoader
 import matplotlib
 import matplotlib.pyplot as plt
 
+from draft import intensities_to_list
+
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -35,7 +37,7 @@ class XRDModel(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
         self.linear_1 = nn.Linear(hidden_size * 2 if bidirectional else hidden_size, hidden_size // 2)
-        self.output_layer = nn.Linear(hidden_size * 2 if bidirectional else hidden_size, 26) # 26
+        self.output_layer = nn.Linear(hidden_size * 2 if bidirectional else hidden_size, 105) 
 
         # nn.init.kaiming_normal_(self.output_layer.weight.data)
 
@@ -51,17 +53,35 @@ class XRDModel(nn.Module):
         return outputs, logits
 
 
+# class XRDDataset(Dataset):
+#     def __init__(self, data):
+#         self.data  = data 
+#         self.id_values = self.data['id'].unique()
+
+#     def __getitem__(self, idx):
+#         intensity = self.data['intensity'][self.data['id'] == self.id_values[idx]].values
+#         label = self.data['material'][self.data['id'] == self.id_values[idx]].values[0]
+
+#         intensity = torch.tensor(intensity, dtype=torch.float32)
+#         label = torch.tensor(label, dtype=torch.long)
+
+#         sample = {
+#             'data': intensity,
+#             'label': label
+#         }
+
+#         return sample
+
+#     def __len__(self):
+#         return len(self.id_values)
+    
 class XRDDataset(Dataset):
     def __init__(self, data):
         self.data  = data 
-        self.id_values = self.data['id'].unique()
 
     def __getitem__(self, idx):
-        print(len(self.id_values))
-        intensity = self.data['intensity'][self.data['id'] == self.id_values[idx]].values
-        label = self.data['material'][self.data['id'] == self.id_values[idx]].values[0]
-        print(intensity)
-        print(label)
+        intensity = np.array(self.data['intensity'].iloc[idx])
+        label = self.data['material'].iloc[idx]
 
         intensity = torch.tensor(intensity, dtype=torch.float32)
         label = torch.tensor(label, dtype=torch.long)
@@ -74,7 +94,7 @@ class XRDDataset(Dataset):
         return sample
 
     def __len__(self):
-        return len(self.id_values)
+        return len(self.data)
 
 
 class DataHandler():
@@ -115,25 +135,37 @@ class DataHandler():
         print('Preprocessing data...')
 
         # Normalize pattern in range [0, 1]
-        for x in range(0, len(self.data) - 2250, 2250):
-            intensity = self.data['intensity'].iloc[x:x + 2250].values
+        for x in range(0, len(data) - 2250, 2250):
+            intensity = data['intensity'].iloc[x:x + 2250].values
             intensity = (intensity - min(intensity)) / (max(intensity) - min(intensity))
 
-            self.data['intensity'].iloc[x:x + 2250] = intensity
+            data['intensity'].iloc[x:x + 2250] = intensity
 
         # Remote single-element patterns
-        self.data = self.data[self.data['id'].str.contains('_')].reset_index(drop=True)
+        data = data[data['id'].str.contains('_')].reset_index(drop=True)
 
         # Encode material names
-        self.data['material'] = self.label_encoder.fit_transform(self.data['material'])
+        data['material'] = self.label_encoder.fit_transform(data['material'])
         np.save('material_encodings.npy', self.label_encoder.classes_)
+
+        data = intensities_to_list(data)
 
         return data
 
-    def split_data(self, data, current_fold):
-        kfold = model_selection.StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=self.config.general.seed)
+    # def split_data(self, data, current_fold):
+    #     kfold = model_selection.StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=self.config.general.seed)
 
-        for fold, (train_idx, val_idx) in enumerate(kfold.split(data['intensity'], data['material'], groups=data['id'])):
+    #     for fold, (train_idx, val_idx) in enumerate(kfold.split(data['intensity'], data['material'], groups=data['id'])):
+    #         if fold == current_fold:
+    #             train_data = data.iloc[train_idx].reset_index(drop=True)
+    #             val_data = data.iloc[val_idx].reset_index(drop=True)
+
+    #             return train_data, val_data
+
+    def split_data(self, data, current_fold):
+        kfold = model_selection.StratifiedKFold(n_splits=5, shuffle=True, random_state=self.config.general.seed)
+
+        for fold, (train_idx, val_idx) in enumerate(kfold.split(data['intensity'], data['material'])):
             if fold == current_fold:
                 train_data = data.iloc[train_idx].reset_index(drop=True)
                 val_data = data.iloc[val_idx].reset_index(drop=True)
@@ -173,10 +205,12 @@ def train(config, dataloader, model, loss_function, optimizer, scheduler, scaler
         if config.training.mixed_precision:
             with amp.autocast():
                 outputs, _ = model(inputs)
+                outputs = outputs.squeeze(1)
 
                 loss = loss_function(outputs, labels)
         else:
             outputs, _ = model(inputs)
+            outputs = outputs.squeeze(1)
             # print(outputs.shape)
 
             loss = loss_function(outputs, labels)
@@ -213,7 +247,8 @@ def validation(config, dataloader, model, loss_function):
         inputs, labels = batch['data'].to(config.training.device), batch['label'].to(config.training.device)
 
         with torch.no_grad():
-            outputs, logits = model(inputs)      
+            outputs, logits = model(inputs)   
+            outputs = outputs.squeeze(1)   
 
         loss = loss_function(outputs, labels)
 
@@ -237,11 +272,11 @@ if __name__ == '__main__':
             'num_epochs': 150, 
 
             'device': 'cuda',
-            'mixed_precision': True
+            'mixed_precision': False
         },
         'data': {
-            'train_batch_size': 4, 
-            'val_batch_size': 4
+            'train_batch_size': 32, 
+            'val_batch_size': 32
         }
     }
     config = OmegaConf.create(config)
@@ -251,7 +286,7 @@ if __name__ == '__main__':
     cv_scores = []
 
     for fold in range(5):
-        data_handler = DataHandler(config=config, path_to_data='data.csv')
+        data_handler = DataHandler(config=config, path_to_data='data/data.csv')
         train_loader, val_loader = data_handler(current_fold=fold)
 
         model = XRDModel(input_size=2250, hidden_size=128, num_layers=1, dropout=0, bidirectional=False).to(config.training.device)
