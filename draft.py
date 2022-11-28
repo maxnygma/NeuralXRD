@@ -1,5 +1,6 @@
 import os
 import random
+import joblib
 from tqdm import tqdm
 
 import numpy as np
@@ -10,7 +11,7 @@ from scipy.spatial import distance
 from scipy.spatial.distance import cosine
 
 import matplotlib
-#matplotlib.use('TkAgg')
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 import warnings
@@ -66,7 +67,7 @@ def generate_synthetic_phases(data):
                     material_data_2 = data[data['id'] == id_2]
 
                     # Shift intensity by a random 2theta (range of [-1; 1])
-                    for i in range(5):
+                    for i in range(15):
                         material_data_1['intensity'] = material_data_1['intensity'].shift(random.randint(-50, 50), fill_value=0.0)
                         material_data_2['intensity'] = material_data_2['intensity'].shift(random.randint(-50, 50), fill_value=0.0)
 
@@ -90,17 +91,16 @@ def generate_synthetic_phases(data):
 
 
 def intensities_to_list(data):
-    for x in tqdm(data['id'].unique()):
-        intensity = [data['intensity'][data['id'] == x].values.tolist()]
+    data['intensity_list'] = 0
+    data['intensity_list'] = data['intensity_list'].astype('object')
 
-        row = pd.DataFrame(data[data['id'] == x].iloc[0]).T
-        row['intensity'] = row['intensity'].astype('object')
-        row['intensity'] = intensity
-    
-        data = data.drop(data[data['id'] == x].index)
-        data = pd.concat([data, row])
+    for i in range(0, len(data) - 2250, 2250):
+        intensity = data['intensity'].iloc[i:i + 2250].values.tolist()
+        data['intensity_list'].iloc[i] = intensity
 
-        print(data.shape)
+    data = data[data['intensity_list'] != 0].reset_index(drop=True)
+    data = data.drop(['intensity', '2theta'], axis=1)
+    data.rename(columns={'intensity_list': 'intensity'}, inplace=True)
     
     return data
 
@@ -177,9 +177,6 @@ def windowed_similarity(data, intensity, window_size):
 def compute_peak_areas(intensity, clip_threshold=0, peak_distance=None, peak_height=None,
                        rounding_factor=5):
     ''' Compute areas of peaks of a selected pattern '''
-
-    s_point, l_point = np.where(intensity > 0)[0][0], np.where(intensity > 0)[0][-1]
-
     # Get peak indexes
     x_values = np.arange(0, 2250)
     #peaks = sp_sig.find_peaks_cwt(intensity, widths=np.arange(5, 90, 30))
@@ -195,14 +192,6 @@ def compute_peak_areas(intensity, clip_threshold=0, peak_distance=None, peak_hei
     x_split = np.split(x_values, ix_min[1:-1])
     y_split = np.split(intensity, ix_min[1:-1])
     y_split = [(x - min(x)) / (max(x) - min(x)) for x in y_split]
-
-    # Set dynamic threshold to clip the peaks
-    # if len(peaks) < 3:
-    #     clip_threshold = 0.5
-    # elif len(peaks) < 8:
-    #     clip_threshold = 0.1
-    # else:
-    #     clip_threshold = 0
 
     # Clip values on the bottom of peaks to get more accurate results on peaks with little overlap
     for i in range(len(y_split)):
@@ -222,15 +211,22 @@ def score_method(data):
     dataset_size = 0
     data_combined = data[data['id'].str.contains('_')].reset_index(drop=True)
 
+    experiment_data_complete = pd.DataFrame(columns=['reference_material', 'detected_material', 'areas_reference',
+                        'areas_detected', 'num_matched_peaks', 'start_point_reference',
+                        'last_point_reference', 'start_point_detected', 'last_point_detected'])
+
     for material in tqdm(data_combined['material'].unique()):
         # Get a random sample of combined material
-        dataset_size += len(data_combined['intensity'][data_combined['material'] == material].values.reshape((-1, 2250)))
+        dataset_size += len(data_combined['intensity'][data_combined['material'] == material].values)
 
-        for intensity in data_combined['intensity'][data_combined['material'] == material].values.reshape((-1, 2250)):
+        for intensity in data_combined['intensity'][data_combined['material'] == material].values:
         #   intensity = random.choice(data_combined['intensity'][data_combined['material'] == material].values.reshape((-1, 2250)))
-            outputs = compute_peak_area_similarity(intensity=intensity, data=data, clip_threshold=0.05, 
+            intensity = np.array(intensity)
+            outputs, experiment_data = compute_peak_area_similarity(intensity=intensity, data=data, clip_threshold=0.25, 
                                                peak_distance=None, peak_height=0.05, rounding_factor=4,
-                                               verbose=False)
+                                               verbose=False, material_name=material, save_experiments=False, calibration_model=None)
+            
+            experiment_data_complete = pd.concat([experiment_data_complete, experiment_data])
 
             if len(outputs) > 0:
                 for output in outputs:
@@ -247,34 +243,66 @@ def score_method(data):
     print(precision, recall)
     print(f_score) 
 
+    print(experiment_data_complete)
+    experiment_data_complete.to_csv('experiment_data.csv', index=False)
+
 
 def compute_peak_area_similarity(intensity, data, clip_threshold, peak_distance=None, peak_height=None, rounding_factor=5, 
-                                 verbose=False):
+                                 verbose=False, material_name=None, save_experiments=False, calibration_model=None):
+    ''' Find matching elements for a selected XRD samples '''
+
     ### Deteck peaks and their minima -> calculate area under peak for each normalized peak -> 
     ### -> do the same for selected sample (also normalize each peak) -> compare number of matching areas
     single_element_data = data[~data['id'].str.contains('_')].reset_index(drop=True)
 
     areas, minimums = compute_peak_areas(intensity, clip_threshold=clip_threshold, peak_distance=peak_distance, 
-                               peak_height=peak_height, rounding_factor=rounding_factor)
+                                        peak_height=peak_height, rounding_factor=rounding_factor)
 
     outputs = []
-    experiments = pd.DataFrame(columns=['reference_material', 'detected_material', 'areas_reference',
-                                        'areas_detected', 'num_matched_peaks', 'start_point_reference',
-                                        'last_point_reference', 'start_point_detected', 'last_point_detected'])
+    if save_experiments:
+        experiments_dict = {'reference_material': [], 'detected_material': [], 'areas_reference': [],
+                            'areas_detected': [], 'num_matched_peaks': [], 'start_point_reference': [],
+                            'last_point_reference': [], 'start_point_detected': [], 'last_point_detected': []}
 
     # Iterate over a set of samples for a particular element
-    for i in range(0, len(single_element_data) - 2250, 2250):
+    for i in range(len(single_element_data)):
         single_element = single_element_data['material'].iloc[i]
-        intensity_single_element = single_element_data['intensity'].iloc[i:i + 2250].values
+        intensity_single_element = np.array(single_element_data['intensity'].iloc[i])
 
         # Compute peak areas for the searched element
         areas_single_element, _ = compute_peak_areas(intensity_single_element, clip_threshold=clip_threshold, 
                                                   peak_distance=peak_distance, peak_height=peak_height, 
                                                   rounding_factor=rounding_factor)
+        
         s_point, l_point = np.where(intensity_single_element > 0)[0][0], np.where(intensity_single_element > 0)[0][-1]
+        try:
+            s_point_reference, l_point_reference = np.where(intensity[s_point:l_point] > 0)[0][0], np.where(intensity[s_point:l_point] > 0)[0][-1]
+        except:
+            s_point_reference, l_point_reference = None, None
 
         # Get number of detected peaks
         num_detected_peaks = len([x for x in range(len(areas_single_element)) if areas_single_element[x] in areas])
+
+        if save_experiments:
+            experiments_dict['reference_material'].append(material_name)
+            experiments_dict['detected_material'].append(single_element)
+            experiments_dict['areas_reference'].append(areas)
+            experiments_dict['areas_detected'].append(areas_single_element)
+            experiments_dict['num_matched_peaks'].append(num_detected_peaks)
+            experiments_dict['start_point_reference'].append(s_point_reference)
+            experiments_dict['last_point_reference'].append(l_point_reference)
+            experiments_dict['start_point_detected'].append(s_point)
+            experiments_dict['last_point_detected'].append(l_point)
+
+        if calibration_model is not None:
+            if s_point_reference is None or l_point_reference is None:
+                s_point_reference = 0
+                l_point_reference = 100
+
+            pred = calibration_model.predict([[num_detected_peaks, s_point_reference, l_point_reference, s_point, l_point, sum(areas), sum(areas_single_element)]])
+            prob = calibration_model.predict_proba([[num_detected_peaks, s_point_reference, l_point_reference, s_point, l_point, sum(areas), sum(areas_single_element)]])
+        
+        print(single_element, pred, prob[0][1])
 
         # if num_detected_peaks == 1 and len(areas_single_element) > 2:
         #     continue # Check that some random peak of a complex material won't count as prediction
@@ -287,7 +315,10 @@ def compute_peak_area_similarity(intensity, data, clip_threshold, peak_distance=
                 print(areas_single_element)
                 print(areas)
 
-                print(l_point - s_point, len(np.where(intensity[s_point:l_point] > 0)[0]))
+                print(pred, prob[0][1])
+                #print(l_point - s_point, len(np.where(intensity[s_point:l_point] > 0)[0]))
+        elif pred[0] == 1:
+            print(f'Calibration model detected {single_element.upper()}')
 
             outputs.append({
                 'material': single_element,
@@ -296,71 +327,66 @@ def compute_peak_area_similarity(intensity, data, clip_threshold, peak_distance=
                 'num_matched_peaks': num_detected_peaks,
                 'start_point_material': s_point,
                 'last_point_material': l_point,
-                'start_point_combined_material': np.where(intensity[s_point:l_point] > 0)[0][0],
-                'last_point_combined_material': np.where(intensity[s_point:l_point] > 0)[0][-1]
+                'start_point_combined_material': s_point_reference,
+                'last_point_combined_material': l_point_reference
             })
 
-            
-    return outputs
+    if save_experiments:
+        experiments_data = pd.DataFrame.from_dict(experiments_dict)
+
+        return outputs, experiments_data
+    else:
+        return outputs
 
         
         # print(single_element, num_detected_peaks)
 
 
 
+if __name__ == '__main__':
+    # data = create_df_from_xrd_files(path_to_xrd_files='xrd_patterns')
+    # initial_shape = data.shape[0]
+    # data = generate_synthetic_phases(data)
 
-# data = create_df_from_xrd_files(path_to_xrd_files='xrd_patterns')
-# initial_shape = data.shape[0]
-# data = generate_synthetic_phases(data)
-data = pd.read_csv('data/data.csv')
-data = normalize_intensity(data)
+    data = pd.read_csv('data/data.csv')
+    data = normalize_intensity(data)
+    data = intensities_to_list(data)
 
-# data = data[data['id'].str.contains('_')].reset_index(drop=True)
+    print(data['material'].value_counts())
 
-# Get XRD patterns of a two materials and a combination of them
-first_material = 'bao2'
-second_material = 'al2o3'
+    # data = data[data['id'].str.contains('_')].reset_index(drop=True)
 
-original_sample = random.choice(data['intensity'][data['material'] == first_material].values.reshape((-1, 2250)))
-try:
-    combined_intensity = random.choice(data['intensity'] \
-                        [data['material'].str.contains(first_material + '_' + second_material)].values.reshape((-1, 2250)))
-except:
-    combined_intensity = random.choice(data['intensity'] \
-                        [data['material'].str.contains(second_material + '_' + first_material)].values.reshape((-1, 2250)))
+    # Get XRD patterns of a two materials and a combination of them
+    first_material = 'fe'
+    second_material = 'v'
 
-### Apply windowed similarity calculation
-# windowed_similarity(data, combined_intensity, window_size=125)
+    original_sample = np.array(random.choice(data['intensity'][data['material'] == first_material].values))
+    original_sample_2 = np.array(random.choice(data['intensity'][data['material'] == second_material].values))
+    try:
+        combined_intensity = np.array(random.choice(data['intensity'][data['material'] == first_material + '_' + second_material].values))
+    except:
+        combined_intensity = np.array(random.choice(data['intensity'][data['material'] == second_material + '_' + first_material].values))
 
-# areas = compute_peak_areas(original_sample, clip_threshold=0.2)
-# areas_combined = compute_peak_areas(combined_intensity, clip_threshold=0.2)
-# print(areas)
-# print(areas_combined)
+    ### Hard samples: mgo + al2o3, overlapping samples like fe + ti
 
-# num_detected_peaks = len([x for x in range(len(areas)) if areas[x] in areas_combined])
-# print('Number of detected peaks:', num_detected_peaks)
-# print('Percentage of matched peaks', num_detected_peaks / len(areas))
+    model = joblib.load('calibration_model.pkl')
+        
+    outputs = compute_peak_area_similarity(combined_intensity, data, clip_threshold=0.1, 
+                                        peak_distance=None, peak_height=0.005, rounding_factor=4, verbose=True,
+                                        material_name=None, save_experiments=False, calibration_model=model)
+    # score_method(data)
 
-### Initial settings
-###     clip_threshold = 0.1
-###     distance = 10
-###     height = 0.1
-###     rounding = 3
-
-### Hard samples: mgo + al2o3, overlapping samples like fe + ti
-
-# Add peak position comparison to remove wrong predictions
-# Shift and removed detected material
-outputs = compute_peak_area_similarity(combined_intensity, data, clip_threshold=0.05, 
-                                       peak_distance=None, peak_height=0.05, rounding_factor=4, verbose=True)
-# score_method(data)
-
-plt.figure(figsize=(12, 5))
-plt.subplot(1, 2, 1)
-plt.plot(range(0, 2250), original_sample)
-plt.subplot(1, 2, 2)
-plt.plot(range(0, 2250), combined_intensity)
-plt.show()
+    plt.figure(figsize=(15, 5))
+    plt.subplot(1, 3, 1)
+    plt.plot(range(0, 2250), original_sample)
+    plt.xlabel(first_material)
+    plt.subplot(1, 3, 2)
+    plt.plot(range(0, 2250), original_sample_2)
+    plt.xlabel(second_material)
+    plt.subplot(1, 3, 3)
+    plt.plot(range(0, 2250), combined_intensity)
+    plt.xlabel(first_material + '_' + second_material)
+    plt.show()
 
 
 
