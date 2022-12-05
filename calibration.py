@@ -49,20 +49,14 @@ train_data, val_data = train_test_split(data, test_size=0.25, random_state=99, s
 train_x, train_y = train_data.drop(['match', 'reference_material', 'detected_material', 'areas_reference', 'areas_detected'], axis=1), train_data['match']
 val_x, val_y = val_data.drop(['match', 'reference_material', 'detected_material', 'areas_reference', 'areas_detected'], axis=1), val_data['match']
 
-# scaler = StandardScaler()
-# train_x[['start_point_reference', 'last_point_reference', 'start_point_detected', 'last_point_detected']] = scaler.fit_transform(train_x[['start_point_reference', 
-#                                                                                                                                           'last_point_reference', 
-#                                                                                                                                           'start_point_detected', 
-#                                                                                                                                           'last_point_detected']])
+# model = RandomForestClassifier(n_estimators=50, max_depth=14, criterion='log_loss', random_state=99)
+# model.fit(train_x, train_y)
 
-model = RandomForestClassifier(n_estimators=50, max_depth=14, criterion='log_loss', random_state=99)
-model.fit(train_x, train_y)
+# joblib.dump(model, 'calibration_model.pkl')
+# model = joblib.load('calibration_model.pkl')
 
-joblib.dump(model, 'calibration_model.pkl')
-model = joblib.load('calibration_model.pkl')
-
-preds = model.predict(val_x)
-score = accuracy_score(val_y, preds)
-print(score)
+# preds = model.predict(val_x)
+# score = accuracy_score(val_y, preds)
+# print(score)
 
 

@@ -115,11 +115,11 @@ def als_baseline_correction(y, lam, p, n_iters=10):
 
 
 if __name__ == '__main__':
-    # data = create_df_from_xrd_files(path_to_xrd_files='xrd_patterns')
-    # initial_shape = data.shape[0]
-    # data = generate_synthetic_phases(data)
+    # # data = create_df_from_xrd_files(path_to_xrd_files='xrd_patterns')
+    # # initial_shape = data.shape[0]
+    # # data = generate_synthetic_phases(data)
 
-    # with open('ti21v40cr35.txt', 'r') as f:
+    # with open('real_samples/ti21v40cr35.txt', 'r') as f:
     #     real_data = f.read()
     #     real_data = ' '.join(real_data.split())
     # real_data = [float(x) for x in real_data.split(' ')]
@@ -149,7 +149,6 @@ if __name__ == '__main__':
     # plt.xlabel('v')
     # plt.show()
 
-
     # model = joblib.load('calibration_model.pkl')
 
     # outputs = compute_peak_area_similarity(intensity, data, clip_threshold=0.1, 
@@ -165,8 +164,8 @@ if __name__ == '__main__':
     # data = data[data['id'].str.contains('_')].reset_index(drop=True)
 
     # Get XRD patterns of a two materials and a combination of them
-    first_material = 'fe'
-    second_material = 'v'
+    first_material = 'nao3'
+    second_material = 'al2o3'
 
     original_sample = np.array(random.choice(data['intensity'][data['material'] == first_material].values))
     original_sample_2 = np.array(random.choice(data['intensity'][data['material'] == second_material].values))
@@ -174,8 +173,6 @@ if __name__ == '__main__':
         combined_intensity = np.array(random.choice(data['intensity'][data['material'] == first_material + '_' + second_material].values))
     except:
         combined_intensity = np.array(random.choice(data['intensity'][data['material'] == second_material + '_' + first_material].values))
-
-    ### Hard samples: mgo + al2o3, overlapping samples like fe + ti
 
     model = joblib.load('calibration_model.pkl')
         
@@ -187,13 +184,13 @@ if __name__ == '__main__':
     plt.figure(figsize=(15, 5))
     plt.subplot(1, 3, 1)
     plt.plot(range(0, 2250), original_sample)
-    plt.xlabel(first_material)
+    # plt.xlabel(first_material)
     plt.subplot(1, 3, 2)
     plt.plot(range(0, 2250), original_sample_2)
-    plt.xlabel(second_material)
+    # plt.xlabel(second_material)
     plt.subplot(1, 3, 3)
     plt.plot(range(0, 2250), combined_intensity)
-    plt.xlabel(first_material + '_' + second_material)
+    # plt.xlabel(first_material + '_' + second_material)
     plt.show()
 
 
