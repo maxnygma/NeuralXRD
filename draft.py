@@ -115,22 +115,22 @@ def als_baseline_correction(y, lam, p, n_iters=10):
 
 
 if __name__ == '__main__':
-    # # data = create_df_from_xrd_files(path_to_xrd_files='xrd_patterns')
-    # # initial_shape = data.shape[0]
-    # # data = generate_synthetic_phases(data)
+    # data = create_df_from_xrd_files(path_to_xrd_files='xrd_patterns')
+    # initial_shape = data.shape[0]
+    # data = generate_synthetic_phases(data)
 
     # with open('real_samples/ti21v40cr35.txt', 'r') as f:
     #     real_data = f.read()
     #     real_data = ' '.join(real_data.split())
-    # real_data = [float(x) for x in real_data.split(' ')]
+    # real_data = [float(x) for x in real_data.split(' ')]  
 
     # degrees = np.array([x for i, x in enumerate(real_data) if i % 2 == 0])
 
     # intensity = np.array([x for i, x in enumerate(real_data) if i % 2 != 0])
-    # intensity = sp_sig.savgol_filter(intensity, 50, 3)
-    # baseline = als_baseline_correction(intensity, lam=10**2, p=0.001, n_iters=10)
-    # intensity = intensity - baseline
-    # intensity = (intensity - min(intensity)) / (max(intensity) - min(intensity))
+    # # intensity = sp_sig.savgol_filter(intensity, 50, 3)
+    # # baseline = als_baseline_correction(intensity, lam=10**2, p=0.001, n_iters=10)
+    # # intensity = intensity - baseline
+    # # intensity = (intensity - min(intensity)) / (max(intensity) - min(intensity))
 
     # # plt.plot(degrees, intensity)
     # # plt.show()
@@ -139,7 +139,7 @@ if __name__ == '__main__':
     # data = normalize_intensity(data)
     # data = intensities_to_list(data)
 
-    # original_sample = np.array(random.choice(data['intensity'][data['material'] == 'v'].values))
+    # original_sample = np.array(random.choice(data['intensity'][data['material'] == 'ti2o'].values))
     # plt.figure(figsize=(15, 5))
     # plt.subplot(1, 2, 1)
     # plt.plot(range(0, len(intensity)), intensity)
@@ -164,8 +164,8 @@ if __name__ == '__main__':
     # data = data[data['id'].str.contains('_')].reset_index(drop=True)
 
     # Get XRD patterns of a two materials and a combination of them
-    first_material = 'nao3'
-    second_material = 'al2o3'
+    first_material = 'li20'
+    second_material = 'mgo'
 
     original_sample = np.array(random.choice(data['intensity'][data['material'] == first_material].values))
     original_sample_2 = np.array(random.choice(data['intensity'][data['material'] == second_material].values))
@@ -179,7 +179,7 @@ if __name__ == '__main__':
     outputs = compute_peak_area_similarity(combined_intensity, data, clip_threshold=0.1, 
                                         peak_distance=None, peak_height=0.005, rounding_factor=4, verbose=True,
                                         material_name=None, save_experiments=False, calibration_model=model)
-    # score_method(data)
+    score_method(data, save_experiments=False, calibration_model=model)
 
     plt.figure(figsize=(15, 5))
     plt.subplot(1, 3, 1)

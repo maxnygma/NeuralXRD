@@ -46,51 +46,10 @@ def compute_peak_areas(intensity, clip_threshold=0, peak_distance=None, peak_hei
     return areas, minimums
 
 
-def score_method(data):
-    tp = 0; fp = 0;
-
-    dataset_size = 0
-    data_combined = data[data['id'].str.contains('_')].reset_index(drop=True)
-
-    experiment_data_complete = pd.DataFrame(columns=['reference_material', 'detected_material', 'areas_reference',
-                        'areas_detected', 'num_matched_peaks', 'start_point_reference',
-                        'last_point_reference', 'start_point_detected', 'last_point_detected'])
-
-    for material in tqdm(data_combined['material'].unique()):
-        # Get a random sample of combined material
-        dataset_size += len(data_combined['intensity'][data_combined['material'] == material].values)
-
-        for intensity in data_combined['intensity'][data_combined['material'] == material].values:
-        #   intensity = random.choice(data_combined['intensity'][data_combined['material'] == material].values.reshape((-1, 2250)))
-            intensity = np.array(intensity)
-            outputs, experiment_data = compute_peak_area_similarity(intensity=intensity, data=data, clip_threshold=0.25, 
-                                               peak_distance=None, peak_height=0.05, rounding_factor=4,
-                                               verbose=False, material_name=material, save_experiments=False, calibration_model=None)
-            
-            experiment_data_complete = pd.concat([experiment_data_complete, experiment_data])
-
-            if len(outputs) > 0:
-                for output in outputs:
-                    if output['material'] in material:
-                        tp += 1
-                    elif output['material'] not in material:
-                        fp += 1    
-            else:
-                continue
-
-    precision = tp / (tp + fp)
-    recall = tp / (dataset_size * 2)
-    f_score = 2 * ((precision * recall) / (precision + recall))
-    print(precision, recall)
-    print(f_score) 
-
-    print(experiment_data_complete)
-    experiment_data_complete.to_csv('experiment_data.csv', index=False)
-
-
 def compute_peak_area_similarity(intensity, data, clip_threshold, peak_distance=None, peak_height=None, rounding_factor=5, 
                                  verbose=False, material_name=None, save_experiments=False, calibration_model=None):
     ''' Find matching elements for a selected XRD samples '''
+    ''' Return outputs with only matches examples '''
 
     ### Deteck peaks and their minima -> calculate area under peak for each normalized peak -> 
     ### -> do the same for selected sample (also normalize each peak) -> compare number of matching areas
@@ -142,15 +101,44 @@ def compute_peak_area_similarity(intensity, data, clip_threshold, peak_distance=
 
             pred = calibration_model.predict([[num_detected_peaks, s_point_reference, l_point_reference, s_point, l_point, sum(areas), sum(areas_single_element)]])
             prob = calibration_model.predict_proba([[num_detected_peaks, s_point_reference, l_point_reference, s_point, l_point, sum(areas), sum(areas_single_element)]])
+        else:
+            pred = [[0]]
         
-        print(single_element, pred, prob[0][1])
+        # outputs.append({
+        #             'material': single_element,
+        #             'areas_material': areas_single_element,
+        #             'areas_combined_material': areas,
+        #             'num_matched_peaks': num_detected_peaks,
+        #             'start_point_material': s_point,
+        #             'last_point_material': l_point,
+        #             'start_point_combined_material': s_point_reference,
+        #             'last_point_combined_material': l_point_reference
+        #         })
+        # if calibration_model is not None:
+        #     outputs[-1]['model_pred'] = pred
+        # else:
+        #     outputs[-1]['model_pred'] = None
 
         # if num_detected_peaks == 1 and len(areas_single_element) > 2:
         #     continue # Check that some random peak of a complex material won't count as prediction
         # elif (l_point - s_point) * 0.85 < len(np.where(intensity[s_point:l_point] > 0)[0]) and num_detected_peaks == 1:
         #     continue # Check that some one-peak material which is not located in a range of detected peak won't count
-        if num_detected_peaks > 0:
-            if verbose:
+
+        if num_detected_peaks > 0 or pred[0] == 1:
+            outputs.append({
+                    'material': single_element,
+                    'areas_material': areas_single_element,
+                    'areas_combined_material': areas,
+                    'num_matched_peaks': num_detected_peaks,
+                    'start_point_material': s_point,
+                    'last_point_material': l_point,
+                    'start_point_combined_material': s_point_reference,
+                    'last_point_combined_material': l_point_reference,
+                    'model_pred': pred[0]
+                })
+
+        if verbose:
+            if num_detected_peaks > 0:
                 print(f'Integration algorithm detected {single_element.upper()}')
 
                 print(single_element, num_detected_peaks)
@@ -158,20 +146,11 @@ def compute_peak_area_similarity(intensity, data, clip_threshold, peak_distance=
                 print(areas_single_element)
                 print(areas)
 
-                print(pred, prob[0][1])
-        elif pred[0] == 1:
-            print(f'Calibration model detected {single_element.upper()}')
-
-            outputs.append({
-                'material': single_element,
-                'areas_material': areas_single_element,
-                'areas_combined_material': areas,
-                'num_matched_peaks': num_detected_peaks,
-                'start_point_material': s_point,
-                'last_point_material': l_point,
-                'start_point_combined_material': s_point_reference,
-                'last_point_combined_material': l_point_reference
-            })
+                if calibration_model is not None:
+                    print(pred, prob[0][1])
+            else:
+                if pred[0] == 1:
+                    print(f'Calibration model detected {single_element.upper()}')
 
     if save_experiments:
         experiments_data = pd.DataFrame.from_dict(experiments_dict)
@@ -179,3 +158,54 @@ def compute_peak_area_similarity(intensity, data, clip_threshold, peak_distance=
         return outputs, experiments_data
     else:
         return outputs
+
+
+def score_method(data, save_experiments=False, calibration_model=None):
+    tp = 0; fp = 0;
+
+    dataset_size = 0
+    data_combined = data[data['id'].str.contains('_')].reset_index(drop=True)
+
+    experiment_data_complete = pd.DataFrame(columns=['reference_material', 'detected_material', 'areas_reference',
+                        'areas_detected', 'num_matched_peaks', 'start_point_reference',
+                        'last_point_reference', 'start_point_detected', 'last_point_detected'])
+
+    for material in tqdm(data_combined['material'].unique()):
+        # Get a random sample of combined material
+        dataset_size += len(data_combined['intensity'][data_combined['material'] == material].values)
+
+        for intensity in data_combined['intensity'][data_combined['material'] == material].values:
+            intensity = np.array(intensity)
+
+            if save_experiments:
+                outputs, experiment_data = compute_peak_area_similarity(intensity=intensity, data=data, clip_threshold=0.25, 
+                                                peak_distance=None, peak_height=0.05, rounding_factor=4,
+                                                verbose=False, material_name=material, save_experiments=save_experiments, calibration_model=calibration_model)
+                
+                experiment_data_complete = pd.concat([experiment_data_complete, experiment_data])
+            else:
+                outputs = compute_peak_area_similarity(intensity=intensity, data=data, clip_threshold=0.25, 
+                                                peak_distance=None, peak_height=0.05, rounding_factor=4,
+                                                verbose=False, material_name=material, save_experiments=save_experiments, calibration_model=calibration_model)
+            
+            # print(material)
+            # print(outputs)
+
+            if len(outputs) > 0:
+                for output in outputs:
+                    if output['material'] in material:
+                        tp += 1
+                    elif output['material'] not in material:
+                        fp += 1    
+            else:
+                continue
+
+    precision = tp / (tp + fp)
+    recall = tp / (dataset_size * 2)
+    f_score = 2 * ((precision * recall) / (precision + recall))
+    print(precision, recall)
+    print(f_score) 
+
+    if save_experiments:
+        print(experiment_data_complete)
+        experiment_data_complete.to_csv('experiment_data.csv', index=False)
