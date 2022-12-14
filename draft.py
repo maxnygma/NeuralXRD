@@ -11,9 +11,9 @@ from scipy import signal as sp_sig
 from scipy.spatial import distance
 from scipy.spatial.distance import cosine
 
-import matplotlib
-matplotlib.use('TkAgg')
-import matplotlib.pyplot as plt
+#import matplotlib
+#matplotlib.use('TkAgg')
+#import matplotlib.pyplot as plt
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -83,9 +83,6 @@ def windowed_similarity(data, intensity, window_size):
     for x in top_3_sim:
         print(list(similarities.keys())[list(similarities.values()).index(x)], x)
 
-
-
-    
 
 def als_baseline_correction(y, lam, p, n_iters=10):
     L = len(y)
@@ -164,8 +161,8 @@ if __name__ == '__main__':
     # data = data[data['id'].str.contains('_')].reset_index(drop=True)
 
     # Get XRD patterns of a two materials and a combination of them
-    first_material = 'li20'
-    second_material = 'mgo'
+    first_material = 'fe'
+    second_material = 'al2o3'
 
     original_sample = np.array(random.choice(data['intensity'][data['material'] == first_material].values))
     original_sample_2 = np.array(random.choice(data['intensity'][data['material'] == second_material].values))
@@ -179,19 +176,20 @@ if __name__ == '__main__':
     outputs = compute_peak_area_similarity(combined_intensity, data, clip_threshold=0.1, 
                                         peak_distance=None, peak_height=0.005, rounding_factor=4, verbose=True,
                                         material_name=None, save_experiments=False, calibration_model=model)
-    score_method(data, save_experiments=False, calibration_model=model)
+    #score_method(data, save_experiments=False, calibration_model=model)
+    # F1 0.823 - without support model, F1 - 0.971 - with support model
 
-    plt.figure(figsize=(15, 5))
-    plt.subplot(1, 3, 1)
-    plt.plot(range(0, 2250), original_sample)
-    # plt.xlabel(first_material)
-    plt.subplot(1, 3, 2)
-    plt.plot(range(0, 2250), original_sample_2)
-    # plt.xlabel(second_material)
-    plt.subplot(1, 3, 3)
-    plt.plot(range(0, 2250), combined_intensity)
-    # plt.xlabel(first_material + '_' + second_material)
-    plt.show()
+    # plt.figure(figsize=(15, 5))
+    # plt.subplot(1, 3, 1)
+    # plt.plot(range(0, 2250), original_sample)
+    # # plt.xlabel(first_material)
+    # plt.subplot(1, 3, 2)
+    # plt.plot(range(0, 2250), original_sample_2)
+    # # plt.xlabel(second_material)
+    # plt.subplot(1, 3, 3)
+    # plt.plot(range(0, 2250), combined_intensity)
+    # # plt.xlabel(first_material + '_' + second_material)
+    # plt.show()
 
 
 

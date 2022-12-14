@@ -124,6 +124,7 @@ def compute_peak_area_similarity(intensity, data, clip_threshold, peak_distance=
         # elif (l_point - s_point) * 0.85 < len(np.where(intensity[s_point:l_point] > 0)[0]) and num_detected_peaks == 1:
         #     continue # Check that some one-peak material which is not located in a range of detected peak won't count
 
+        # Add output if detected peaks > 0 or support model detected material
         if num_detected_peaks > 0 or pred[0] == 1:
             outputs.append({
                     'material': single_element,
@@ -141,16 +142,16 @@ def compute_peak_area_similarity(intensity, data, clip_threshold, peak_distance=
             if num_detected_peaks > 0:
                 print(f'Integration algorithm detected {single_element.upper()}')
 
-                print(single_element, num_detected_peaks)
+                # print(single_element, num_detected_peaks)
 
-                print(areas_single_element)
-                print(areas)
+                # print(areas_single_element)
+                # print(areas)
 
-                if calibration_model is not None:
-                    print(pred, prob[0][1])
-            else:
-                if pred[0] == 1:
-                    print(f'Calibration model detected {single_element.upper()}')
+                # if calibration_model is not None:
+                #     print(pred, prob[0][1])
+            #else:
+            if pred[0] == 1:
+                print(f'Calibration model detected {single_element.upper()}')
 
     if save_experiments:
         experiments_data = pd.DataFrame.from_dict(experiments_dict)
@@ -178,14 +179,14 @@ def score_method(data, save_experiments=False, calibration_model=None):
             intensity = np.array(intensity)
 
             if save_experiments:
-                outputs, experiment_data = compute_peak_area_similarity(intensity=intensity, data=data, clip_threshold=0.25, 
-                                                peak_distance=None, peak_height=0.05, rounding_factor=4,
+                outputs, experiment_data = compute_peak_area_similarity(intensity=intensity, data=data, clip_threshold=0.1, 
+                                                peak_distance=None, peak_height=0.005, rounding_factor=4,
                                                 verbose=False, material_name=material, save_experiments=save_experiments, calibration_model=calibration_model)
                 
                 experiment_data_complete = pd.concat([experiment_data_complete, experiment_data])
             else:
-                outputs = compute_peak_area_similarity(intensity=intensity, data=data, clip_threshold=0.25, 
-                                                peak_distance=None, peak_height=0.05, rounding_factor=4,
+                outputs = compute_peak_area_similarity(intensity=intensity, data=data, clip_threshold=0.1, 
+                                                peak_distance=None, peak_height=0.005, rounding_factor=4,
                                                 verbose=False, material_name=material, save_experiments=save_experiments, calibration_model=calibration_model)
             
             # print(material)
@@ -203,8 +204,8 @@ def score_method(data, save_experiments=False, calibration_model=None):
     precision = tp / (tp + fp)
     recall = tp / (dataset_size * 2)
     f_score = 2 * ((precision * recall) / (precision + recall))
-    print(precision, recall)
-    print(f_score) 
+    print('P:', precision, 'R:', recall)
+    print('F1:', f_score) 
 
     if save_experiments:
         print(experiment_data_complete)
