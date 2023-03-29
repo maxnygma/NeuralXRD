@@ -19,39 +19,45 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
-data = pd.read_csv('experiment_data.csv')
-data['match'] = 0
-data['area_reference_total'] = 0
-data['area_detected_total'] = 0
-for i, row in data.iterrows():
-    if row['detected_material'] in row['reference_material']:
-        data['match'].iloc[i] = 1
+def prepare_training_data(data):
+    data['match'] = 0
+    data['area_reference_total'] = 0
+    data['area_detected_total'] = 0
+    for i, row in data.iterrows():
+        if row['detected_material'] in row['reference_material']:
+            data['match'].iloc[i] = 1
 
-    data['area_reference_total'].iloc[i] = sum(eval(row['areas_reference']))
-    data['area_detected_total'].iloc[i] = sum(eval(row['areas_detected']))
+        data['area_reference_total'].iloc[i] = sum(eval(row['areas_reference']))
+        data['area_detected_total'].iloc[i] = sum(eval(row['areas_detected']))
 
-data = data.dropna(axis=0)
-# data['area_reference_total'] = data['areas_reference'].apply(lambda x: sum(eval(x)))
-# data['area_detected_total'] = data['areas_detected'].apply(lambda x: sum(eval(x)))
+    data = data.dropna(axis=0)
 
-print(data)
-print('False samples', len(data[data['match'] == 0][data['num_matched_peaks'] > 0]))
-print(len(data[data['match'] == 1][data['num_matched_peaks'] == 0]))
+    return data
 
-train_data, val_data = train_test_split(data, test_size=0.25, random_state=99, shuffle=True, stratify=data['match'])
-train_x, train_y = train_data.drop(['match', 'reference_material', 'detected_material', 'areas_reference', 'areas_detected'], axis=1), train_data['match']
-val_x, val_y = val_data.drop(['match', 'reference_material', 'detected_material', 'areas_reference', 'areas_detected'], axis=1), val_data['match']
 
-print(train_x)
+def split_data(data):
+    train_data, val_data = train_test_split(data, test_size=0.25, random_state=99, shuffle=True, stratify=data['match'])
+    train_x, train_y = train_data.drop(['match', 'reference_material', 'detected_material', 'areas_reference', 'areas_detected'], axis=1), train_data['match']
+    val_x, val_y = val_data.drop(['match', 'reference_material', 'detected_material', 'areas_reference', 'areas_detected'], axis=1), val_data['match']
 
-model = RandomForestClassifier(n_estimators=50, max_depth=14, criterion='log_loss', random_state=99)
-model.fit(train_x, train_y)
+    return train_x, train_y, val_x, val_y
 
-joblib.dump(model, 'calibration_model.pkl')
-model = joblib.load('calibration_model.pkl')
 
-preds = model.predict(val_x)
-score = f1_score(val_y, preds)
-print(score)
+if __name__ == '__main__':
+    data = pd.read_csv('experiment_data.csv')
+    
+    data = prepare_training_data(data)
+    train_x, train_y, val_x, val_y = split_data(data)
+
+    model = RandomForestClassifier(n_estimators=50, max_depth=14, criterion='log_loss', random_state=99)
+    model.fit(train_x, train_y)
+
+    joblib.dump(model, 'calibration_model.pkl')
+    model = joblib.load('calibration_model.pkl')
+
+    preds = model.predict(val_x)
+    score = f1_score(val_y, preds)
+    
+    print(score)
 
 

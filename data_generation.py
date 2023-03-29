@@ -10,6 +10,16 @@ warnings.filterwarnings('ignore')
 
 
 def create_df_from_xrd_files(path_to_xrd_files='xrd_patterns'):
+    '''
+    Form a DataFrame from a folder of XRD patterns
+
+    Args:
+        path_to_xrd_files (str): path to a folder with XRD cvs files (2 theta and intensity)
+
+    Returns:
+        data (pd.DataFrame): combined DataFrame
+    '''
+
     data = pd.DataFrame(columns=['id', 'material', '2theta', 'intensity'])
 
     for filename in tqdm(os.listdir(path_to_xrd_files)):
@@ -21,9 +31,6 @@ def create_df_from_xrd_files(path_to_xrd_files='xrd_patterns'):
 
 
         data = pd.concat([data, material_data]).reset_index(drop=True)
-
-        # plt.plot(data['2_theta'], data['intensity'])
-        # plt.show()
 
     return data
 

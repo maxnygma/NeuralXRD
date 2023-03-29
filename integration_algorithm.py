@@ -17,10 +17,10 @@ warnings.filterwarnings('ignore')
 def compute_peak_areas(intensity, clip_threshold=0, peak_distance=None, peak_height=None,
                        rounding_factor=5):
     ''' Compute areas of peaks of a selected pattern '''
+
     # Get peak indexes
     # x_values = np.arange(0, 2250)
     x_values = np.arange(0, len(intensity))
-    #peaks = sp_sig.find_peaks_cwt(intensity, widths=np.arange(5, 90, 30))
     peaks = sp_sig.find_peaks(intensity, distance=peak_distance, height=peak_height)[0]
 
     # Get minimums between peaks
@@ -48,11 +48,22 @@ def compute_peak_areas(intensity, clip_threshold=0, peak_distance=None, peak_hei
 
 def compute_peak_area_similarity(intensity, data, clip_threshold, peak_distance=None, peak_height=None, rounding_factor=5, 
                                  verbose=False, material_name=None, save_experiments=False, calibration_model=None):
-    ''' Find matching elements for a selected XRD samples '''
-    ''' Return outputs with only matches examples '''
+    ''' 
+    Find matching elements for a selected XRD samples 
 
-    ### Deteck peaks and their minima -> calculate area under peak for each normalized peak -> 
-    ### -> do the same for selected sample (also normalize each peak) -> compare number of matching areas
+    Args:
+        intensity (np.ndarray): intensity data to compute peaks for
+        data (pd.DataFrame): data with complete list of materials to find matches
+        clip_threshold (float): threshold to clip peaks at the bottom
+        peak_distance (float): distance for scipy.find_peaks
+        peak_height (float): height for scipy.find_peaks
+        rounding_factor (int): floating point to round peak areas to
+        verbose (bool): print output or not
+        material_name (str): name of the main material
+        save_experiments (bool): output cvs data of experiments or not
+        calibration_model (sklearn model or None): weights for calibration model 
+    '''
+
     single_element_data = data[~data['id'].str.contains('_')].reset_index(drop=True)
 
     areas, minimums = compute_peak_areas(intensity, clip_threshold=clip_threshold, peak_distance=peak_distance, 
@@ -103,26 +114,6 @@ def compute_peak_area_similarity(intensity, data, clip_threshold, peak_distance=
             prob = calibration_model.predict_proba([[num_detected_peaks, s_point_reference, l_point_reference, s_point, l_point, sum(areas), sum(areas_single_element)]])
         else:
             pred = [[0]]
-        
-        # outputs.append({
-        #             'material': single_element,
-        #             'areas_material': areas_single_element,
-        #             'areas_combined_material': areas,
-        #             'num_matched_peaks': num_detected_peaks,
-        #             'start_point_material': s_point,
-        #             'last_point_material': l_point,
-        #             'start_point_combined_material': s_point_reference,
-        #             'last_point_combined_material': l_point_reference
-        #         })
-        # if calibration_model is not None:
-        #     outputs[-1]['model_pred'] = pred
-        # else:
-        #     outputs[-1]['model_pred'] = None
-
-        # if num_detected_peaks == 1 and len(areas_single_element) > 2:
-        #     continue # Check that some random peak of a complex material won't count as prediction
-        # elif (l_point - s_point) * 0.85 < len(np.where(intensity[s_point:l_point] > 0)[0]) and num_detected_peaks == 1:
-        #     continue # Check that some one-peak material which is not located in a range of detected peak won't count
 
         # Add output if detected peaks > 0 or support model detected material
         if num_detected_peaks > 0 or pred[0] == 1:
@@ -141,15 +132,6 @@ def compute_peak_area_similarity(intensity, data, clip_threshold, peak_distance=
         if verbose:
             if num_detected_peaks > 0:
                 print(f'Integration algorithm detected {single_element.upper()}')
-
-                # print(single_element, num_detected_peaks)
-
-                # print(areas_single_element)
-                # print(areas)
-
-                # if calibration_model is not None:
-                #     print(pred, prob[0][1])
-            #else:
             if pred[0] == 1:
                 print(f'Calibration model detected {single_element.upper()}')
 
@@ -162,7 +144,10 @@ def compute_peak_area_similarity(intensity, data, clip_threshold, peak_distance=
 
 
 def score_method(data, save_experiments=False, calibration_model=None):
-    tp = 0; fp = 0;
+    ''' Evaluate the method on the provided data '''
+
+    tp = 0
+    fp = 0
 
     dataset_size = 0
     data_combined = data[data['id'].str.contains('_')].reset_index(drop=True)
@@ -188,9 +173,6 @@ def score_method(data, save_experiments=False, calibration_model=None):
                 outputs = compute_peak_area_similarity(intensity=intensity, data=data, clip_threshold=0.1, 
                                                 peak_distance=None, peak_height=0.005, rounding_factor=4,
                                                 verbose=False, material_name=material, save_experiments=save_experiments, calibration_model=calibration_model)
-            
-            # print(material)
-            # print(outputs)
 
             if len(outputs) > 0:
                 for output in outputs:
