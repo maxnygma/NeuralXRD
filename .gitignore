@@ -1,9 +1,10 @@
+andrey.cif
+data_old.csv
+mercury_automation.py
+draft.py
 __pycache__
 ti_cif_files
 cif_files
 data
 model_weights
-andrey.cif
-data_old.csv
-mercury_automation.py
-draft.py
+
