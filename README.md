@@ -37,7 +37,6 @@ if __name__ == '__main__':
 
 # Reference
 To cite this paper use the following reference:
-PLACEHOLDER
 ```
 @inproceedings{zhdanov2023machine,
   title={Machine learning-assisted close-set X-ray diffraction phase identification of transition metals},
