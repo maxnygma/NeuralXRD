@@ -39,10 +39,9 @@ if __name__ == '__main__':
 To cite this paper use the following reference:
 PLACEHOLDER
 ```
-@inproceedings{zhdanov2023diffraction,
-  author = {Maksim Zhdanov and Andrey Zhdanov},
-  booktitle = {International Conference on Learning Representations (ICLR)},
-  title = {Machine Learning-Assisted Close-Set X-ray Diffraction Phase Identification of Transition Metals},
-  year = {2023},
+@inproceedings{zhdanov2023machine,
+  title={Machine learning-assisted close-set X-ray diffraction phase identification of transition metals},
+  author={Zhdanov, Maksim and Zhdanov, Andrey},
+  booktitle={Workshop on''Machine Learning for Materials''ICLR 2023}
 }
 ```
